@@ -2,5 +2,5 @@
 #include "bindings.h"
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("propagation", &propagation_tensor);
+  m.def("propagation", &pms::propagation_tensor);
 }

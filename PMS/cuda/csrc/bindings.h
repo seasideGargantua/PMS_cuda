@@ -4,6 +4,7 @@
 #include <c10/cuda/CUDAGuard.h>
 #include <torch/extension.h>
 #include <tuple>
+#include <random>
 
 #define N_THREADS 256
 
@@ -30,13 +31,15 @@
 
 namespace pms {
 
-std::tuple<torch::Tensor, 
-          torch::Tensor,
-          torch::Tensor,
-          torch::tensor>
+std::tuple<
+    torch::Tensor, 
+    torch::Tensor,
+    torch::Tensor,
+    torch::Tensor>
 propagation_tensor(
     const int patch_size,
     const int num_iters,
+    const float gamma,
     const float alpha,
     const float tau_col,
     const float tau_grad,
