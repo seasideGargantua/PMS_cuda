@@ -55,6 +55,9 @@ def match(
         plane_right
     )
 
+    rand_d = torch.rand((height, width, 2, setting.num_iters), device=img_left.device) * 2 - 1
+    rand_n = torch.rand((height, width, 3, 2, setting.num_iters), device=img_left.device) * 2 - 1
+
     # propagation
     for i in range(setting.num_iters):
         plane_left, plane_right, cost_left, cost_right = propagation(
@@ -68,6 +71,8 @@ def match(
             plane_right,
             cost_left,
             cost_right,
+            rand_d[..., 0, i],
+            rand_n[..., 0, i],
             left_img=True
         )
         plane_right, plane_left, cost_right, cost_left = propagation(
@@ -81,8 +86,11 @@ def match(
             plane_right,
             cost_left,
             cost_right,
+            rand_d[..., 1, i],
+            rand_n[..., 1, i],
             left_img=False
         )
+        __import__('ipdb').set_trace()
 
     disp_left = plane2disparity(plane_left)
     disp_right = plane2disparity(plane_right)

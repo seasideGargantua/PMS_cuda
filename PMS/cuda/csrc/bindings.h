@@ -73,7 +73,9 @@ propagation_tensor(
     torch::Tensor plane_left,
     torch::Tensor plane_right,
     torch::Tensor cost_left,
-    torch::Tensor cost_right
+    torch::Tensor cost_right,
+    torch::Tensor rand_disp,
+    torch::Tensor rand_norm
 );
 
 }

@@ -13,7 +13,7 @@ inline __device__ float to_disparity(float3 p, int x, int y){
     return p.x * float(x) + p.y * float(y) + p.z;
 }
 
-inline __device__ float3 to_another_view(float3 p){
+inline __device__ float3 to_another_view(float3 p, int x, int y){
     float d = to_disparity(p, x, y);
 	return { -p.x, -p.y, -p.z - p.x * d };
 }
@@ -298,11 +298,11 @@ inline __device__ void plane_refine(
     float3* plane_left,
     float* cost_left,
     float* rand_disp_,
-    float* rand_norm_
+    float3* rand_norm_
 ) {
 
     float rand_d = rand_disp_[y*width+x];
-	float rand_n = rand_norm_[y*width+x];
+	float3 rand_n = rand_norm_[y*width+x];
 
 	float3& plane_p = plane_left[y * width + x];
 	float& cost_p = cost_left[y * width + x];
@@ -330,11 +330,11 @@ inline __device__ void plane_refine(
 
 		float3 norm_rd;
 		if (!is_fource_fpw) {
-			norm_rd.x = rand_n * norm_update;
-			norm_rd.y = rand_n * norm_update;
-			float z = rand_n * norm_update;
-			while (z == 0.0f) {
-				z = rand_n * norm_update;
+			norm_rd.x = rand_n.x * norm_update;
+			norm_rd.y = rand_n.y * norm_update;
+			float z = rand_n.z * norm_update;
+			if (z == 0.0f) {
+				z = (rand_n.z + 0.1f) * norm_update;
 			}
 			norm_rd.z = z;
 		}

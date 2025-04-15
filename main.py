@@ -33,8 +33,8 @@ def main():
 
     left_disp = left_disp.cpu().numpy()
     right_disp = right_disp.cpu().numpy()
-    left_disp = np.where(abs(left_disp) > setting.max_disparity, 0, left_disp)
-    right_disp = np.where(abs(right_disp) > setting.max_disparity, 0, right_disp)
+    left_disp = np.where(abs(left_disp) > 1024, 0, left_disp)
+    right_disp = np.where(abs(right_disp) > 1024, 0, right_disp)
     left_disp = (left_disp - left_disp.min()) / (left_disp.max()-left_disp.min()) * 255
     right_disp = (right_disp - right_disp.min()) / (right_disp.max()-right_disp.min()) * 255
     

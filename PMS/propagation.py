@@ -14,6 +14,8 @@ def propagation(num_iter: int,
                 plane_right: Tensor,
                 cost_left: Tensor,
                 cost_right: Tensor,
+                rand_d: Tensor,
+                rand_n: Tensor,
                 left_img: bool = True):
     """Plane and Cost Propagation."""
     if left_img:
@@ -35,7 +37,9 @@ def propagation(num_iter: int,
             plane_left,
             plane_right,
             cost_left,
-            cost_right
+            cost_right,
+            rand_d,
+            rand_n
         )
     else:
         return _Propagation.apply(
@@ -55,8 +59,10 @@ def propagation(num_iter: int,
             grad_left,
             plane_right,
             plane_left,
+            cost_right,
             cost_left,
-            cost_right
+            rand_d,
+            rand_n
         )
 
 class _Propagation(torch.autograd.Function):
@@ -82,7 +88,9 @@ class _Propagation(torch.autograd.Function):
         plane_left,
         plane_right,
         cost_left,
-        cost_right
+        cost_right,
+        rand_d,
+        rand_n
     ):
 
         plane_left, plane_right, cost_left, cost_right = _C.propagation(
@@ -103,7 +111,9 @@ class _Propagation(torch.autograd.Function):
             plane_left,
             plane_right,
             cost_left,
-            cost_right
+            cost_right,
+            rand_d,
+            rand_n
         )
 
         return plane_left, plane_right, cost_left, cost_right

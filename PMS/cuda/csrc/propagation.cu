@@ -59,13 +59,13 @@ __global__ void initiate_cost(
                                             alpha,
                                             tau_col,
                                             tau_grad,
-                                            -min_disp,
                                             -max_disp,
+                                            -min_disp,
                                             plane_r,
-                                            img_right,
-                                            grad_right,
                                             img_left,
-                                            grad_left);
+                                            grad_left,
+                                            img_right,
+                                            grad_right);
 }
 
 std::tuple<
@@ -142,7 +142,7 @@ __global__ void propagation_kernel(
     float* cost_left,
     float* cost_right,
     float* rand_disp_,
-    float* rand_norm_
+    float3* rand_norm_
 ) { 
 
 	int y = (dir == 1) ? 0 : height - 1;
@@ -244,7 +244,9 @@ propagation_tensor(
     torch::Tensor plane_left,
     torch::Tensor plane_right,
     torch::Tensor cost_left,
-    torch::Tensor cost_right
+    torch::Tensor cost_right,
+    torch::Tensor rand_disp,
+    torch::Tensor rand_norm
 ){
     const int dir = (num_iter%2==0) ? 1 : -1;
     
@@ -252,31 +254,8 @@ propagation_tensor(
     const int height = img_left.size(1);
 
     // Launch kernel
-    dim3 block_size(16, 16);
-    dim3 grid_size((width + block_size.x - 1) / block_size.x,
-                   (height + block_size.y - 1) / block_size.y);
-
-    // 在主机代码中生成随机数
-    std::vector<float> random_disparities(width * height);
-    std::vector<float> random_normals(width * height);
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> rand_disp(min_disp, max_disp);
-    std::uniform_real_distribution<float> rand_norm(-1.0f, 1.0f);
-
-    for (int i = 0; i < width * height; i++) {
-        random_disparities[i] = rand_disp(gen);
-        random_normals[i] = rand_norm(gen);
-    }
-
-    // 将随机数传递到设备
-    float* d_random_disparities;
-    float* d_random_normals;
-    cudaMalloc(&d_random_disparities, random_disparities.size() * sizeof(float));
-    cudaMalloc(&d_random_normals, random_normals.size() * sizeof(float));
-    cudaMemcpy(d_random_disparities, random_disparities.data(), random_disparities.size() * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_random_normals, random_normals.data(), random_normals.size() * sizeof(float), cudaMemcpyHostToDevice);
+    dim3 block_size(1, 1);
+    dim3 grid_size(1, 1);
 
     propagation_kernel<<<grid_size, block_size>>>(
         dir,
@@ -299,8 +278,8 @@ propagation_tensor(
         (float3*)plane_right.contiguous().data_ptr<float>(),
         cost_left.contiguous().data_ptr<float>(),
         cost_right.contiguous().data_ptr<float>(),
-        d_random_disparities,
-        d_random_normals
+        (float*)rand_disp.contiguous().data_ptr<float>(),
+        (float3*)rand_norm.contiguous().data_ptr<float>()
     );
 
     return std::make_tuple(plane_left, plane_right, cost_left, cost_right);
