@@ -10,6 +10,5 @@ def _make_lazy_cuda_func(name: str) -> Callable:
 
     return call_cuda
 
-
-rasterize_forward = _make_lazy_cuda_func("rasterize_forward")
-rasterize_backward = _make_lazy_cuda_func("rasterize_backward")
+initiate_cost = _make_lazy_cuda_func("initiate_cost")
+propagation = _make_lazy_cuda_func("propagation")

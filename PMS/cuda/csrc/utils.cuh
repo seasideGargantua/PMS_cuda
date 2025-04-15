@@ -181,7 +181,7 @@ inline __device__ void spatial_propagation(
                                                 img_left,
                                                 grad_left);
 			if (cost_pd < cost_p) {
-				plane_p = plane_pd;
+                plane_p = plane_pd;
 				cost_p = cost_pd;
 			}
 		}

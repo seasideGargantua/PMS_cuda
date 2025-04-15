@@ -2,17 +2,16 @@ from typing import List, Tuple
 import torch
 from torch import Tensor
 import torch.nn.functional as F
+import PMS.cuda as _C
 
 class PMSSetting:
     def __init__(self, patch_size: int=35, min_disparity: int=0, max_disparity: int=64,
                     gamma: float=10.0, alpha: float=0.9, tau_col: float=10.0, tau_grad: float=2.0,
-                    num_iters: int=3, is_check_lr: bool=False, lrcheck_thres: float=0,
+                    num_iters: int=3, is_check_lr: bool=True, lrcheck_thres: float=1.0,
                     is_fill_holes: bool=False, is_fource_fpw: bool=False, is_integer_disp: bool=False):
         self.patch_size = patch_size
         self.min_disparity = min_disparity
         self.max_disparity = max_disparity
-        self.min_disparity_r = -min_disparity   # for propagation
-        self.max_disparity_r = -max_disparity   # for propagation
         self.gamma = gamma
         self.alpha = alpha
         self.tau_col = tau_col
@@ -24,39 +23,21 @@ class PMSSetting:
         self.is_fource_fpw = is_fource_fpw
         self.is_integer_disp = is_integer_disp
 
-class DisparityPlane:
-    def __init__(self, width: int, height: int, disp: Tensor=None, norm: Tensor=None, plane: Tensor=None):
-        self.width = width
-        self.height = height
-        assert width > 0 and height > 0, "Width and height must be positive integers"
-        assert (disp is not None and norm is not None) or plane is not None, "At least disp and norm, or plane must be provided"
-        if plane is not None:
-            self.plane = plane
-        else:
-            xy_plane = torch.stack(torch.meshgrid(torch.arange(width), torch.arange(height)), dim=-1).float()
-            # (n.x * x + n.y * y + n.z * d) / n.z;
-            xyd = torch.cat([xy_plane, disp.unsqueeze(-1)], dim=-1)
-            norm = norm / norm[..., 2:3]
-            plane_z = norm * xyd
-            self.plane = torch.cat([-norm[..., :2], plane_z], dim=-1)
+def plane2disparity(plane: Tensor) -> Tensor:
+    """Convert plane to disparity."""
+    assert len(plane.shape) == 3 and plane.shape[-1] == 3, "Input plane must be a 3D tensor with last dimension of size 3"
+    assert plane.shape[0] > 0 and plane.shape[1] > 0, "Input plane must have positive height and width"
     
-    def get_plane(self, px: int, py: int):
-        return self.plane[py, px]
-
-    def to_disparity(self, px: int, py: int, x: int, y: int):
-        return self.planes[py, px] @ torch.tensor([x, y, 1.], device=self.plane.device).unsqueeze(-1)
-
-    def to_normal(self, px: int, py: int):
-        return torch.tensor([self.planes[py, px, 0], self.planes[py, px, 1], 1.]).normalize(dim=-1)
-
-    def to_another_view(self, x: int, y: int):
-        denom = 1. / (self.plane[y, x, 0] - 1.)
-        return torch.tensor([self.plane[y, x, 0] * denom, self.plane[y, x, 1] * denom, self.plane[y, x, 2] * denom], device=self.plane.device)
+    height, width = plane.shape[:2]
+    xy_plane = torch.stack(torch.meshgrid(torch.arange(height, device=plane.device), torch.arange(width, device=plane.device)), dim=-1).float()
+    # planes[py, px] @ torch.tensor([x, y, 1.], device=self.plane.device).unsqueeze(-1)
+    xy = torch.cat([xy_plane, torch.ones((height, width, 1), device=plane.device)], dim=-1)
+    return torch.einsum('ijk,ijk->ij', plane, xy)
 
 def compute_gray(rgb: Tensor) -> Tensor:
     return 0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]
 
-def compute_gradients(image: Tensor) -> Tuple[Tensor, Tensor]:
+def compute_gradients(gray: Tensor) -> Tuple[Tensor, Tensor]:
     """Compute gradients of the image."""
     assert len(gray.shape) == 2, "Input gray image must be a 2D tensor"
     
@@ -84,3 +65,68 @@ def compute_gradients(image: Tensor) -> Tuple[Tensor, Tensor]:
     grad = torch.stack((grad_x, grad_y), dim=-1)  # (height, width, 2)
     
     return grad
+
+def initiate_cost(
+    setting: PMSSetting,
+    img_left: Tensor,
+    img_right: Tensor,
+    grad_left: Tensor,
+    grad_right: Tensor,
+    plane_left: Tensor,
+    plane_right: Tensor
+):
+    """Initiate the cost volume."""
+    return _InitiateCost.apply(
+        setting.patch_size,
+        setting.gamma,
+        setting.alpha,
+        setting.tau_col,
+        setting.tau_grad,
+        setting.min_disparity,
+        setting.max_disparity,
+        img_left,
+        img_right,
+        grad_left,
+        grad_right,
+        plane_left,
+        plane_right
+    )
+
+class _InitiateCost(torch.autograd.Function):
+    """ Initiate the Cost """
+
+    @staticmethod
+    def forward(
+        ctx,
+        patch_size,
+        gamma,
+        alpha,
+        tau_col,
+        tau_grad,
+        min_disp,
+        max_disp,
+        img_left,
+        img_right,
+        grad_left,
+        grad_right,
+        plane_left,
+        plane_right
+    ):
+
+        cost_left, cost_right = _C.initiate_cost(
+            patch_size,
+            gamma,
+            alpha,
+            tau_col,
+            tau_grad,
+            min_disp,
+            max_disp,
+            img_left,
+            img_right,
+            grad_left,
+            grad_right,
+            plane_left,
+            plane_right
+            )
+
+        return cost_left, cost_right

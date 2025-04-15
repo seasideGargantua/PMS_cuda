@@ -92,7 +92,7 @@ def get_extensions():
 
 
 setup(
-    name="pms_cuda",
+    name="PMS",
     version=__version__,
     author="seasideGargantua",
     author_email="seasidegargantua@gmail.com",

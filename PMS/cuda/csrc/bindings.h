@@ -33,12 +33,31 @@ namespace pms {
 
 std::tuple<
     torch::Tensor, 
+    torch::Tensor>
+initiate_cost_tensor(
+    const int patch_size,
+    const float gamma,
+    const float alpha,
+    const float tau_col,
+    const float tau_grad,
+    const float min_disp,
+    const float max_disp,
+    torch::Tensor img_left,
+    torch::Tensor img_right,
+    torch::Tensor grad_left,
+    torch::Tensor grad_right,
+    torch::Tensor plane_left,
+    torch::Tensor plane_right
+);
+
+std::tuple<
+    torch::Tensor, 
     torch::Tensor,
     torch::Tensor,
     torch::Tensor>
 propagation_tensor(
+    const int num_iter,
     const int patch_size,
-    const int num_iters,
     const float gamma,
     const float alpha,
     const float tau_col,
@@ -48,9 +67,13 @@ propagation_tensor(
     const bool is_integer_disp,
     const bool is_fource_fpw,
     torch::Tensor img_left,
-    torch::Tensor grad_left,
     torch::Tensor img_right,
-    torch::Tensor grad_right
+    torch::Tensor grad_left,
+    torch::Tensor grad_right,
+    torch::Tensor plane_left,
+    torch::Tensor plane_right,
+    torch::Tensor cost_left,
+    torch::Tensor cost_right
 );
 
 }
