@@ -14,11 +14,11 @@ inline __device__ float to_disparity(float3 p, int x, int y){
 }
 
 inline __device__ float3 to_another_view(float3 p){
-    float denom = 1 / (p.x - 1.f);
-	return { p.x * denom, p.y * denom, p.z * denom };
+    float d = to_disparity(p, x, y);
+	return { -p.x, -p.y, -p.z - p.x * d };
 }
 
-inline __device__ float3 normalize(float3& p){
+inline __device__ void normalize(float3& p){
     float norm = sqrt(p.x * p.x + p.y * p.y + p.z*p.z);
     if (norm > 0.0f) {
         p.x /= norm;
@@ -39,7 +39,7 @@ inline __device__ float3 init_from_norm(float3 n, float d, int x, int y){
 }
 
 inline __device__ bool equal_plane(float3 p1, float3 p2){
-    return (abs(p1.x - p2.x) < 0.01f && abs(p1.y - p2.y) < 0.01f && abs(p1.z - p2.z) < 0.01f);
+    return ((p1.x == p2.x) && (p1.y == p2.y) && (p1.z == p2.z));
 }
 
 /*****************************************************/
@@ -54,21 +54,23 @@ inline __device__ float compute(
     const float alpha,
     const float tau_col,
     const float tau_grad,
-    const float3 col_p, 
-    const float2 grad_p, 
     const float d,
+    const float3* img_left,
     const float3* img_right,
-    const float2* grad_right
+    const float2* grad_right,
+    const float2* grad_left
 ) {
     const float xr = x - d;
     if (xr < 0.0f || xr >= static_cast<float>(width)) {
         return (1 - alpha) * tau_col + alpha * tau_grad;
     }
 
+    const float3 col_p = img_left[y * width + x];
     const float3 col_q = img_right[y * width + static_cast<int>(xr)];
     const float dc = min(abs(col_p.x - col_q.x) + abs(col_p.y - col_q.y) + abs(col_p.z - col_q.z), tau_col);
 
 
+    const float2 grad_p = grad_left[y * width + x];
     const float2 grad_q = grad_right[y * width + static_cast<int>(xr)];
     const float dg = min(abs(grad_p.x - grad_q.x) + abs(grad_p.y - grad_q.y), tau_grad);
 
@@ -117,15 +119,15 @@ inline __device__ float compute_cost(
             const float2 grad_q = grad_left[yr*width + xc];
             cost += w * compute(width,
                                 height,
-                                x, 
-                                y, 
+                                xc, 
+                                yr, 
                                 alpha,
                                 tau_col,
                                 tau_grad,
-                                col_q, 
-                                grad_q, 
                                 d,
+                                img_left,
                                 img_right,
+                                grad_left,
                                 grad_right);
         }
     }
@@ -156,7 +158,6 @@ inline __device__ void spatial_propagation(
     float3* plane_left,
     float* cost_left
 ) {
-    
     float3& plane_p = plane_left[y * width + x];
     float& cost_p = cost_left[y * width + x];
 
@@ -250,12 +251,12 @@ inline __device__ void view_propagation(
 	float3& plane_q = plane_right[q];
 	float& cost_q = cost_right[q];
 
-	const float3 plane_p2q = to_another_view(plane_p);
+	const float3 plane_p2q = to_another_view(plane_p, x, y);
 	const float d_q = to_disparity(plane_p2q, xr, y);
 	const auto cost = compute_cost(patch_size,
                                     width,
                                     height,
-                                    x,
+                                    xr,
                                     y,
                                     gamma,
                                     alpha,

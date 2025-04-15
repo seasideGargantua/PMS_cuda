@@ -13,14 +13,19 @@ def match(
     assert len(img_left.shape) == 3, "Input images must be 3D tensors"
     height, width = img_left.shape[:2]
 
-    # Random initiate disparity and normal
+    # Random initiate disparity and normal and plane
     disp_left = torch.rand((height, width), device=img_left.device) * (setting.max_disparity - setting.min_disparity) + setting.min_disparity
     disp_right = -1. * (torch.rand((height, width), device=img_left.device) * (setting.max_disparity - setting.min_disparity) + setting.min_disparity)
-    norm_left = torch.rand((height, width, 3), device=img_left.device) * 2 - 1
-    norm_right = torch.rand((height, width, 3), device=img_left.device) * 2 - 1
-    norm_left = torch.where(norm_left == 0, torch.tensor(0.1, device=norm_left.device, dtype=norm_left.dtype), norm_left)
-    norm_right = torch.where(norm_right == 0, torch.tensor(0.1, device=norm_left.device, dtype=norm_left.dtype), norm_right)
-
+    if not setting.is_fource_fpw:
+        norm_left = torch.rand((height, width, 3), device=img_left.device) * 2 - 1
+        norm_right = torch.rand((height, width, 3), device=img_left.device) * 2 - 1
+        norm_left = torch.where(norm_left == 0, torch.tensor(0.1, device=norm_left.device, dtype=norm_left.dtype), norm_left)
+        norm_right = torch.where(norm_right == 0, torch.tensor(0.1, device=norm_left.device, dtype=norm_left.dtype), norm_right)
+    else:
+        norm_left = torch.zeros((height, width, 3), device=img_left.device)
+        norm_right = torch.zeros((height, width, 3), device=img_left.device)
+        norm_left[..., -1] = 1.
+        norm_right[..., -1] = 1.
     # p.x = -n.x / n.z;
     # p.y = -n.y / n.z;
     # p.z = (n.x * x + n.y * y + n.z * d) / n.z;
@@ -34,7 +39,7 @@ def match(
     # Compute gray
     gray_left = compute_gray(img_left)
     gray_right = compute_gray(img_right)
-    
+
     # Compute gradients
     grad_left = compute_gradients(gray_left)
     grad_right = compute_gradients(gray_right)
